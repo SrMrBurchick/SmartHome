@@ -23,7 +23,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
+#include "logger_api.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,14 +47,14 @@ SPI_HandleTypeDef hspi1;
 UART_HandleTypeDef huart1;
 
 osThreadId debugConsoleHandle;
-uint32_t debugConsoleBuffer[ 512 ];
+uint32_t debugConsoleBuffer[ 128 ];
 osStaticThreadDef_t debugConsoleControlBlock;
 osThreadId sensorMonitorHandle;
-uint32_t sensorMonitorBuffer[ 128 ];
-osStaticThreadDef_t sensorMonitorControlBlock;
+uint32_t sensorMonitorTaBuffer[ 128 ];
+osStaticThreadDef_t sensorMonitorTaControlBlock;
 osThreadId heartBeatHandle;
-uint32_t heartBeatBuffer[ 128 ];
-osStaticThreadDef_t heartBeatControlBlock;
+uint32_t HearBeatTaskBuffer[ 128 ];
+osStaticThreadDef_t HearBeatTaskControlBlock;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -107,7 +108,7 @@ int main(void)
   MX_SPI1_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  loggerInit(&huart1);
   /* USER CODE END 2 */
 
   /* USER CODE BEGIN RTOS_MUTEX */
@@ -128,15 +129,15 @@ int main(void)
 
   /* Create the thread(s) */
   /* definition and creation of debugConsole */
-  osThreadStaticDef(debugConsole, debug_console_task, osPriorityLow, 0, 512, debugConsoleBuffer, &debugConsoleControlBlock);
+  osThreadStaticDef(debugConsole, debug_console_task, osPriorityIdle, 0, 512, debugConsoleBuffer, &debugConsoleControlBlock);
   debugConsoleHandle = osThreadCreate(osThread(debugConsole), NULL);
 
   /* definition and creation of sensorMonitor */
-  osThreadStaticDef(sensorMonitor, sensor_monitor_task, osPriorityLow, 0, 128, sensorMonitorBuffer, &sensorMonitorControlBlock);
+  osThreadStaticDef(sensorMonitor, sensor_monitor_task, osPriorityLow, 0, 128, sensorMonitorTaBuffer, &sensorMonitorTaControlBlock);
   sensorMonitorHandle = osThreadCreate(osThread(sensorMonitor), NULL);
 
   /* definition and creation of heartBeat */
-  osThreadStaticDef(heartBeat, heart_beat_task, osPriorityIdle, 0, 128, heartBeatBuffer, &heartBeatControlBlock);
+  osThreadStaticDef(heartBeat, heart_beat_task, osPriorityLow, 0, 128, HearBeatTaskBuffer, &HearBeatTaskControlBlock);
   heartBeatHandle = osThreadCreate(osThread(heartBeat), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -319,7 +320,9 @@ void debug_console_task(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    loggerSetLogLevel(eLogLevelDebug);
+    loggerStart("GreenHouse Module v 0.0");
+    osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -335,9 +338,11 @@ void sensor_monitor_task(void const * argument)
 {
   /* USER CODE BEGIN sensor_monitor_task */
   /* Infinite loop */
+  uint8_t counter = 0;
   for(;;)
   {
-    osDelay(1);
+    osDelay(3000);
+    logErrorMsg("Dbg msg test: {%u}", counter++);
   }
   /* USER CODE END sensor_monitor_task */
 }
@@ -355,7 +360,8 @@ void heart_beat_task(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    HAL_GPIO_TogglePin(HEART_BEAT_LED_GPIO_Port, HEART_BEAT_LED_Pin);
+    osDelay(200);
   }
   /* USER CODE END heart_beat_task */
 }
