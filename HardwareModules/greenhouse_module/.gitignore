@@ -4,3 +4,4 @@ Core/Src/*
 !Core/Src/main.c
 Drivers/
 Middlewares/
+build/
