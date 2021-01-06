@@ -60,12 +60,6 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define HEART_BEAT_LED_Pin GPIO_PIN_13
 #define HEART_BEAT_LED_GPIO_Port GPIOC
-#define SPI_SCK_Pin GPIO_PIN_5
-#define SPI_SCK_GPIO_Port GPIOA
-#define SPI_MISO_Pin GPIO_PIN_6
-#define SPI_MISO_GPIO_Port GPIOA
-#define SPI_MOSI_Pin GPIO_PIN_7
-#define SPI_MOSI_GPIO_Port GPIOA
 #define BOSCH_BM_0_CS_Pin GPIO_PIN_0
 #define BOSCH_BM_0_CS_GPIO_Port GPIOB
 #define BOSCH_BM_1_CS_Pin GPIO_PIN_1
