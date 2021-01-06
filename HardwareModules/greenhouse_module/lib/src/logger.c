@@ -1,12 +1,13 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
-#include "FreeRTOS.h"
-#include "task.h"
-#include "timers.h"
-#include "queue.h"
-#include "semphr.h"
-#include "event_groups.h"
+#include <stdint.h>
+// #include "FreeRTOS.h"
+// #include "task.h"
+// #include "timers.h"
+// #include "queue.h"
+// #include "semphr.h"
+// #include "event_groups.h"
 #include "logger_api.h"
 
 #define QUEUE_LENGTH    (128)
@@ -20,28 +21,29 @@
 #define WARNING "Warning"
 #define ERROR "Error"
 
-static StaticQueue_t xStaticQueue;
-static xQueueHandle st_loggerQueue_p; 
-static uint8_t st_loggerQueueBuffer[QUEUE_LENGTH * ITEM_SIZE];
-static logLevel_t st_logLevel = eLogLevelInfo;
-static xSemaphoreHandle st_semaphore_p = NULL;
-static StaticSemaphore_t st_semaphoreBuffer;
+// static StaticQueue_t xStaticQueue;
+// static xQueueHandle st_loggerQueue_p; 
+// static uint8_t st_loggerQueueBuffer[QUEUE_LENGTH * ITEM_SIZE];
+// static xSemaphoreHandle st_semaphore_p = NULL;
+// static StaticSemaphore_t st_semaphoreBuffer;
 
+static logLevel_t st_logLevel = eLogLevelInfo;
 static uint64_t st_ticksToMs(uint64_t ticks) {
     return ticks * 2;
 }
 
 static void st_sendMsg(const char* log, const char* fmt, va_list vargs) {
-    uint8_t* newMsg = pvPortMalloc(MSG_SIZE);
+    //uint8_t* newMsg = pvPortMalloc(MSG_SIZE);
+    static uint8_t newMsg[MSG_SIZE] = {0};
     uint64_t hours = 0;
     uint64_t minutes = 0;
     uint64_t seconds = 0;
     uint64_t mseconds = 0;
-    uint64_t currentTime = st_ticksToMs(xTaskGetTickCount());
-    if(NULL == newMsg) {
-        write_to_console("Pizda!\n\r", sizeof("Pizda!\n\r"));
-        return;
-    }
+    uint64_t currentTime = 0;//st_ticksToMs(xTaskGetTickCount());
+    // if(NULL == newMsg) {
+    //     write_to_console("Pizda!\n\r", sizeof("Pizda!\n\r"));
+    //     return;
+    // }
     mseconds = currentTime;
     seconds = mseconds / 1000;
     minutes = seconds / 60;
@@ -56,28 +58,28 @@ static void st_sendMsg(const char* log, const char* fmt, va_list vargs) {
         mseconds = mseconds % 1000;
     }
 	memset(newMsg, 0, MSG_SIZE);
-    //sprintf((char*)newMsg, "[%u:%u:%u:%u] ", hours, minutes, seconds, mseconds);
-    sprintf((char*)newMsg, "[%u] ", mseconds);
-    sprintf((char*)newMsg + strlen((char*)newMsg), "{%s}: ", log);
+    // sprintf((char*)newMsg, "[%02u:%02u:%02u:%04u] {%s}", hours, minutes, seconds, mseconds, log);
 	vsprintf((char*)newMsg + strlen((char*)newMsg), (char*)fmt, vargs);
     memcpy((char*)(newMsg + strlen(newMsg)), "\n\r", sizeof("\n\r"));
-    if( pdPASS != xQueueSend(st_loggerQueue_p, &newMsg, LOGGER_QUEUE_TIMEOUT)) {
-        vPortFree(newMsg);
-    }
+    // if( pdPASS != xQueueSend(st_loggerQueue_p, &newMsg, LOGGER_QUEUE_TIMEOUT)) {
+    //     vPortFree(newMsg);
+    // }
+    write_to_console(newMsg, strlen(newMsg) + 1);
+    //vPortFree(newMsg);
 }
 
 result_t loggerInit(UART_HandleTypeDef* uartHandle_p) {
-    st_semaphore_p = xSemaphoreCreateBinaryStatic(&st_semaphoreBuffer);
-    if(NULL == st_semaphore_p) {
-        return eResultFailed;
-    }
-    st_loggerQueue_p = xQueueCreateStatic( QUEUE_LENGTH,
-                                 ITEM_SIZE,
-                                 st_loggerQueueBuffer,
-                                 &xStaticQueue );
-    if(NULL == st_loggerQueue_p) {
-        return eResultFailed;
-    }
+    // st_semaphore_p = xSemaphoreCreateBinaryStatic(&st_semaphoreBuffer);
+    // if(NULL == st_semaphore_p) {
+    //     return eResultFailed;
+    // }
+    // st_loggerQueue_p = xQueueCreateStatic( QUEUE_LENGTH,
+    //                              ITEM_SIZE,
+    //                              st_loggerQueueBuffer,
+    //                              &xStaticQueue );
+    // if(NULL == st_loggerQueue_p) {
+    //     return eResultFailed;
+    // }
     return init_console(uartHandle_p);
 }
 
@@ -85,11 +87,11 @@ result_t loggerSetLogLevel(logLevel_t level) {
     if( eLogLevelsCount <= level) {
         return eResultFailed;
     }
-    if(pdPASS != xSemaphoreTake(st_semaphore_p, LOGGER_QUEUE_TIMEOUT)) {
-        return eResultFailed;
-    }
+    // if(pdPASS != xSemaphoreTake(st_semaphore_p, LOGGER_QUEUE_TIMEOUT)) {
+    //     return eResultFailed;
+    // }
     st_logLevel = level;
-    xSemaphoreGive(st_semaphore_p);
+    // xSemaphoreGive(st_semaphore_p);
     return eResultSucces;
 
 }
@@ -138,19 +140,19 @@ void logTraceMsg(const char* fmt, ...) {
 }
 
 void loggerStart(const char* helloMsg) {
-    uint8_t* newMsg_p = pvPortMalloc(MSG_SIZE);
-    memset(newMsg_p, 0, MSG_SIZE);
-    sprintf((char*)newMsg_p, "%s\n\r", helloMsg);
-    write_to_console(newMsg_p, strlen(newMsg_p));
+    // uint8_t* newMsg_p = pvPortMalloc(MSG_SIZE);
+    // memset(newMsg_p, 0, MSG_SIZE);
+    // sprintf((char*)newMsg_p, "%s\n\r", helloMsg);
+    write_to_console(helloMsg, strlen(helloMsg) + 1);
     while (1)
     {
-        if(NULL != newMsg_p) {
-            vPortFree(newMsg_p);
-        }
-        newMsg_p = NULL;
-        if(pdPASS == xQueueReceive(st_loggerQueue_p, &newMsg_p, LOGGER_QUEUE_TIMEOUT)) {
-            write_to_console(newMsg_p, strlen(newMsg_p) + 1);
-        }
+        // if(NULL != newMsg_p) {
+        //     vPortFree(newMsg_p);
+        // }
+        // newMsg_p = NULL;
+        // if(pdPASS == xQueueReceive(st_loggerQueue_p, &newMsg_p, LOGGER_QUEUE_TIMEOUT)) {
+        //     write_to_console(newMsg_p, strlen(newMsg_p) + 1);
+        // }
         vTaskDelay(100);
     }
     
