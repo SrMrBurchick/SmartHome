@@ -20,7 +20,7 @@ void logInfoMsg(const char* fmt, ...);
 void logErrorMsg(const char* fmt, ...);
 void logWarningMsg(const char* fmt, ...);
 void logTraceMsg(const char* fmt, ...);
-void loggerStart(const char* helloMsg);
+void loggerStart(const char* fmt, ...);
 
 
 #endif /*_LOGGER_API_H_*/

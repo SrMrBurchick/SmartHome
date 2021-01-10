@@ -1,38 +1,18 @@
 /* USER CODE BEGIN Header */
-/**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
-  * All rights reserved.</center></h2>
-  *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
-  *
-  ******************************************************************************
-  */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
+#include "spi.h"
+#include "usart.h"
+#include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <string.h>
-#include "logger_api.h"
-#include "bme280.h"
-#include "bme280_impl_api.h"
-#include "bme280_defs.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -41,96 +21,21 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-SPI_HandleTypeDef hspi2;
 
-UART_HandleTypeDef huart1;
-
-osThreadId heartBeatHandle;
-uint32_t heartBeatBuffer[ 128 ];
-osStaticThreadDef_t heartBeatControlBlock;
-osThreadId sensorMonitorHandle;
-uint32_t sensorMonitorBuffer[ 256 ];
-osStaticThreadDef_t sensorMonitorControlBlock;
 /* USER CODE BEGIN PV */
-void print_sensor_data(uint8_t dev_id, struct bme280_data *comp_data)
-{
-  int32_t temp, press, hum;
-  temp = comp_data->temperature;
-  press = comp_data->pressure;
-  hum = comp_data->humidity;
-  logInfoMsg("{Sensor %u}: %d,%d deg C, %d hPa, %d,%d proc", dev_id, temp/100, temp%100, press, hum / 1024, hum % 1024);
-}
-
-/*!
- * @brief This API reads the sensor temperature, pressure and humidity data in forced mode.
- */
-int8_t set_sensor_settings(struct bme280_dev *dev)
-{
-  int8_t rslt;
-  uint8_t settings_sel;
-	uint32_t req_delay = 0;
-
-  /* Recommended mode of operation: Indoor navigation */
-  dev->settings.osr_h = BME280_OVERSAMPLING_1X;
-  dev->settings.osr_p = BME280_OVERSAMPLING_16X;
-  dev->settings.osr_t = BME280_OVERSAMPLING_2X;
-  dev->settings.filter = BME280_FILTER_COEFF_16;
-  settings_sel = BME280_OSR_PRESS_SEL | BME280_OSR_TEMP_SEL | BME280_OSR_HUM_SEL | BME280_FILTER_SEL;
-
-  rslt = bme280_set_sensor_settings(settings_sel, dev);
-  
-  return rslt;
-}
-
-/*!
- * @brief This API reads the sensor temperature, pressure and humidity data in forced mode.
- */
-int8_t stream_sensor_data_forced_mode(struct bme280_dev *dev)
-{
-  int8_t rslt;
-  uint32_t req_delay = 0;
-  struct identifier* id_p;
-  struct bme280_data comp_data;
-
-	/*Calculate the minimum delay required between consecutive measurement based upon the sensor enabled
-     *  and the oversampling configuration. */
-  req_delay = bme280_cal_meas_delay(&dev->settings);
-  /* Continuously stream sensor data */
-  /* Wait for the measurement to complete and print data @25Hz */
-  rslt = bme280_set_sensor_mode(BME280_FORCED_MODE, dev);
-  if (rslt != BME280_OK)
-  {
-      logErrorMsg("Failed to set sensor mode (code %+d).\n", rslt);
-      return rslt;
-  }
-  dev->delay_us(req_delay, dev->intf_ptr);
-  id_p = (struct identifier*)dev->intf_ptr;
-  rslt = bme280_get_sensor_data(BME280_ALL, &comp_data, dev);
-  print_sensor_data(id_p->dev_addr, &comp_data);
-  
-  return rslt;
-}
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
-static void MX_GPIO_Init(void);
-static void MX_USART1_UART_Init(void);
-static void MX_SPI2_Init(void);
-void heartBeatTask(void const * argument);
-void sensorMonitorTask(void const * argument);
-
+void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
 /* USER CODE END 0 */
 
 /**
@@ -140,7 +45,6 @@ void sensorMonitorTask(void const * argument);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -149,90 +53,33 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
   /* USER CODE END Init */
 
   /* Configure the system clock */
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART1_UART_Init();
   MX_SPI2_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  loggerInit(&huart1);
   /* USER CODE END 2 */
 
-  /* USER CODE BEGIN RTOS_MUTEX */
-  /* add mutexes, ... */
-  /* USER CODE END RTOS_MUTEX */
-
-  /* USER CODE BEGIN RTOS_SEMAPHORES */
-  /* add semaphores, ... */
-  /* USER CODE END RTOS_SEMAPHORES */
-
-  /* USER CODE BEGIN RTOS_TIMERS */
-  /* start timers, add new ones, ... */
-  /* USER CODE END RTOS_TIMERS */
-
-  /* USER CODE BEGIN RTOS_QUEUES */
-  /* add queues, ... */
-  /* USER CODE END RTOS_QUEUES */
-
-  /* Create the thread(s) */
-  /* definition and creation of heartBeat */
-  osThreadStaticDef(heartBeat, heartBeatTask, osPriorityNormal, 0, 128, heartBeatBuffer, &heartBeatControlBlock);
-  heartBeatHandle = osThreadCreate(osThread(heartBeat), NULL);
-
-  /* definition and creation of sensorMonitor */
-  osThreadStaticDef(sensorMonitor, sensorMonitorTask, osPriorityIdle, 0, 256, sensorMonitorBuffer, &sensorMonitorControlBlock);
-  sensorMonitorHandle = osThreadCreate(osThread(sensorMonitor), NULL);
-
-  /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
-
+  /* Call init function for freertos objects (in freertos.c) */
+  MX_FREERTOS_Init();
   /* Start scheduler */
   osKernelStart();
 
   /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  // struct bme280_dev dev;
-  // int8_t rslt = BME280_OK;
-
-  // struct identifier id;
-  // id.dev_addr = eBmeSensor0;
-  // dev.intf = BME280_SPI_INTF;
-  // dev.read = bmeSpiRead;
-  // dev.write = bmeSpiWrite;
-  // dev.delay_us = bmeDelayUs;
-  // dev.intf_ptr = &id;
-  // bmeInit(&hspi2);
-  // rslt = bme280_init(&dev);
-
-  // if (rslt != BME280_OK)
-  // {
-  //     logErrorMsg("Failed to initialize the device (code %+d).\n", rslt);
-  //     exit(1);
-  // }
-
-  while (1)
-  {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    // rslt = stream_sensor_data_forced_mode(&dev);
-    // if (rslt != BME280_OK)
-    // {
-    //     logErrorMsg("Failed to stream sensor data (code %+d).\n", rslt);
-    //     exit(1);
-    // }
-  }
   /* USER CODE END 3 */
 }
 
@@ -274,192 +121,10 @@ void SystemClock_Config(void)
   }
 }
 
-/**
-  * @brief SPI2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI2_Init(void)
-{
-
-  /* USER CODE BEGIN SPI2_Init 0 */
-
-  /* USER CODE END SPI2_Init 0 */
-
-  /* USER CODE BEGIN SPI2_Init 1 */
-
-  /* USER CODE END SPI2_Init 1 */
-  /* SPI2 parameter configuration*/
-  hspi2.Instance = SPI2;
-  hspi2.Init.Mode = SPI_MODE_MASTER;
-  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
-  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi2.Init.CRCPolynomial = 10;
-  if (HAL_SPI_Init(&hspi2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI2_Init 2 */
-
-  /* USER CODE END SPI2_Init 2 */
-
-}
-
-/**
-  * @brief USART1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART1_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART1_Init 0 */
-
-  /* USER CODE END USART1_Init 0 */
-
-  /* USER CODE BEGIN USART1_Init 1 */
-
-  /* USER CODE END USART1_Init 1 */
-  huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
-  huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
-  if (HAL_UART_Init(&huart1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART1_Init 2 */
-
-  /* USER CODE END USART1_Init 2 */
-
-}
-
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_GPIO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(HEART_BEAT_LED_GPIO_Port, HEART_BEAT_LED_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, BOSCH_BM_0_CS_Pin|BOSCH_BM_1_CS_Pin|BOSCH_BM_2_CS_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : HEART_BEAT_LED_Pin */
-  GPIO_InitStruct.Pin = HEART_BEAT_LED_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(HEART_BEAT_LED_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : BOSCH_BM_0_CS_Pin BOSCH_BM_1_CS_Pin BOSCH_BM_2_CS_Pin */
-  GPIO_InitStruct.Pin = BOSCH_BM_0_CS_Pin|BOSCH_BM_1_CS_Pin|BOSCH_BM_2_CS_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-}
-
 /* USER CODE BEGIN 4 */
-
 /* USER CODE END 4 */
 
-/* USER CODE BEGIN Header_heartBeatTask */
-/**
-  * @brief  Function implementing the heartBeat thread.
-  * @param  argument: Not used
-  * @retval None
-  */
-/* USER CODE END Header_heartBeatTask */
-void heartBeatTask(void const * argument)
-{
-  /* USER CODE BEGIN 5 */
-  /* Infinite loop */
-  for(;;)
-  {
-    HAL_GPIO_TogglePin(HEART_BEAT_LED_GPIO_Port, HEART_BEAT_LED_Pin);
-    osDelay(500);
-  }
-  /* USER CODE END 5 */
-}
-
-/* USER CODE BEGIN Header_sensorMonitorTask */
-/**
-* @brief Function implementing the sensorMonitor thread.
-* @param argument: Not used
-* @retval None
-*/
-/* USER CODE END Header_sensorMonitorTask */
-void sensorMonitorTask(void const * argument)
-{
-  /* USER CODE BEGIN sensorMonitorTask */
-  struct bme280_dev dev_sensor_0;
-  struct bme280_dev dev_sensor_1;
-  struct bme280_dev dev_sensor_2;
-  struct identifier id_0;
-  struct identifier id_1;
-  struct identifier id_2;
-  int8_t rslt = BME280_OK;
-
-  bmeInit(&hspi2);
-  id_0.dev_addr = eBmeSensor0;
-  dev_sensor_0.intf = BME280_SPI_INTF;
-  dev_sensor_0.read = bmeSpiRead;
-  dev_sensor_0.write = bmeSpiWrite;
-  dev_sensor_0.delay_us = bmeDelayUs;
-  dev_sensor_0.intf_ptr = &id_0;
-  rslt = bme280_init(&dev_sensor_0);
-  set_sensor_settings(&dev_sensor_0);
-  id_1.dev_addr = eBmeSensor1;
-  dev_sensor_1.intf = BME280_SPI_INTF;
-  dev_sensor_1.read = bmeSpiRead;
-  dev_sensor_1.write = bmeSpiWrite;
-  dev_sensor_1.delay_us = bmeDelayUs;
-  dev_sensor_1.intf_ptr = &id_1;
-  rslt = bme280_init(&dev_sensor_1);
-  set_sensor_settings(&dev_sensor_1);
-  id_2.dev_addr = eBmeSensor2;
-  dev_sensor_2.intf = BME280_SPI_INTF;
-  dev_sensor_2.read = bmeSpiRead;
-  dev_sensor_2.write = bmeSpiWrite;
-  dev_sensor_2.delay_us = bmeDelayUs;
-  dev_sensor_2.intf_ptr = &id_2;
-  rslt = bme280_init(&dev_sensor_2);
-  set_sensor_settings(&dev_sensor_2);
-  /* Infinite loop */
-  for(;;)
-  {  
-    stream_sensor_data_forced_mode(&dev_sensor_0);
-    stream_sensor_data_forced_mode(&dev_sensor_1);
-    stream_sensor_data_forced_mode(&dev_sensor_2);
-    osDelay(500);
-  }
-  /* USER CODE END sensorMonitorTask */
-}
-
-/**
+ /**
   * @brief  Period elapsed callback in non blocking mode
   * @note   This function is called  when TIM1 interrupt took place, inside
   * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
@@ -470,13 +135,11 @@ void sensorMonitorTask(void const * argument)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
-
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM1) {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
-
   /* USER CODE END Callback 1 */
 }
 
@@ -487,8 +150,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-
   /* USER CODE END Error_Handler_Debug */
 }
 
@@ -503,8 +164,6 @@ void Error_Handler(void)
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-     tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

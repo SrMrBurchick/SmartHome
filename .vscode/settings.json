@@ -1,0 +1,10 @@
+{
+    "C_Cpp.default.browse.path": [
+        "${default}", 
+        "${workspaceFolder}",
+        "${workspaceFolder}/HardwareModules",
+        "${workspaceFolder}/HardwareModules/greenhouse_module/",
+        "${workspaceFolder}/HardwareModules/greenhouse_module/Drivers/",
+        "${workspaceFolder}/HardwareModules/greenhouse_module/Drivers/CMSIS/Device/ST/STM32F1xx/Include",
+    ],
+}

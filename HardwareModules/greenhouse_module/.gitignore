@@ -2,6 +2,7 @@ Core/Inc/*
 Core/Src/*
 !Core/Inc/main.h
 !Core/Src/main.c
+!Core/Src/freertos.c
 Drivers/
 Middlewares/
 build/
