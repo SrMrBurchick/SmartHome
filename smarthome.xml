@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<manifest>
+        <remote  name="github"  fetch="https://github.com/" />
+        <project path="hw_modules/common" remote="github" name="SrMrBurchick/SmartHomeHwCommon.git"   revision="master" clone-depth="1" />
+        <project path="hw_modules/modules/green_house" remote="github" name="SrMrBurchick/GreenHouseModule.git"   revision="master" clone-depth="1" />
+</manifest>
