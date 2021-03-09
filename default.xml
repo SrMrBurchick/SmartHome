@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest>
         <include name="smarthome.xml" />
+        <include name="hw_external_libs.xml" />
 </manifest>
